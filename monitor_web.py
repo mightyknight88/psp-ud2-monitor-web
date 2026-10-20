@@ -118,6 +118,18 @@ def comprobar_concurrente():
     return round(perf_counter() - inicio, 2)
 
 
+def monitor(lista_hilos:list):
+    while True:
+        activos = []
+        for hilo in lista_hilos:
+            if hilo.is_alive():
+                activos.append(hilo.name)
+
+        if activos:
+            print(f"[MONITOR] Comprobaciones activas: {len(activos)} -> {', '.join(activos)}")
+
+        time.sleep(1)
+
 ####################
 ##### Ejecución ####
 ####################
