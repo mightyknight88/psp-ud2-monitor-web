@@ -1,7 +1,6 @@
-from time import perf_counter
 import threading
 import requests
-import time
+from time import perf_counter, sleep
 
 UMBRAL_LENTO = 2
 TIMEOUT = 6
@@ -149,8 +148,36 @@ def monitor(lista_hilos:list):
         if activos:
             print(f"[MONITOR] Comprobaciones activas: {len(activos)} -> {', '.join(activos)}")
 
-        time.sleep(1)
+        sleep(1)
 
+
+
+####################
+###### Fase 7 ######
+####################
+
+def mostrar_resumen(tiempo_secuencial:float, tiempo_concurrente:float):
+    resultados = {"disponibles": [], "con_error": []}
+
+    for clave, datos in SERVICIOS.items():
+        match datos["estado"]:
+            case "ONLINE":
+                resultados["disponibles"].append(clave)
+            case _:
+                resultados["con_error"].append(clave)
+
+    print("\n===============================")
+    print("        RESUMEN DEL MONITOR")
+    print("===============================")
+    print(f"Servicios comprobados: {len(SERVICIOS)}")
+    print(f"Disponibles: {len(resultados['disponibles'])}")
+    print(f"Con error: {len(resultados['con_error'])}")
+
+    for clave in resultados["con_error"]:
+        print(f"\t- {clave}: {SERVICIOS[clave]['estado']}")
+
+    print(f"Tiempo secuencial:   {tiempo_secuencial} s")
+    print(f"Tiempo concurrente:  {tiempo_concurrente} s")
 
 
 ####################
@@ -164,3 +191,5 @@ print(f"Tiempo total secuencial: {tiempo_secuencial} s")
 print("\n===== VERSIÓN CONCURRENTE =====")
 tiempo_concurrente = comprobar_concurrente()
 print(f"Tiempo total concurrente: {tiempo_concurrente} s")
+
+mostrar_resumen(tiempo_secuencial, tiempo_concurrente)
