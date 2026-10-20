@@ -3,6 +3,7 @@ import threading
 import requests
 import time
 
+UMBRAL_LENTO = 2
 TIMEOUT = 6
 
 SERVICIOS = {
@@ -38,34 +39,56 @@ SERVICIOS = {
     }
 }
 
+
 def reiniciar_estados():
     for clave, datos in SERVICIOS.items():
         datos["estado"] = "SIN INICIAR"
 
 
 ####################
-##### Fases 1 y 3 ##
+###### Fase 5 ######
+####################
+
+def avisar_lento(url:str):
+    print(f"[AVISO] {url} está tardando demasiado.")
+
+
+####################
+## Fases 1, 3 y 6 ##
 ####################
 
 def comprobar_servicio(clave:str, url:str):
-    nombre_hilo = threading.current_thread().name
+    nombre_hilo = threading.current_thread().name  # Fase 3
 
     print(f"[{nombre_hilo}] Iniciando {url}")
     SERVICIOS[clave]["estado"] = "EN CURSO"
 
-    inicio = perf_counter()
+    aviso = threading.Timer(UMBRAL_LENTO, avisar_lento, args=(url,))
+    aviso.start()
 
-    respuesta = requests.get(url, timeout=TIMEOUT)
-    codigo = respuesta.status_code
-    if respuesta.ok:
-        estado = "ONLINE"
-    else:
-        estado = "ERROR HTTP"
+    inicio = perf_counter()
+    codigo = None
+
+    try:
+        respuesta = requests.get(url, timeout=TIMEOUT)
+        codigo = respuesta.status_code
+        if respuesta.ok:
+            estado = "ONLINE"
+        else:
+            estado = "ERROR HTTP"
+    except requests.exceptions.Timeout:
+        estado = "TIMEOUT"
+    except requests.exceptions.RequestException:
+        estado = "ERROR DE CONEXIÓN"
+    finally:
+        aviso.cancel()
 
     duracion = round(perf_counter() - inicio, 2)
     SERVICIOS[clave]["estado"] = estado
 
     print(f"[{nombre_hilo}] {estado} (código: {codigo}) - {duracion} s")
+
+
 
 ####################
 ###### Fase 1 ######
@@ -79,6 +102,7 @@ def comprobar_secuencial():
         comprobar_servicio(clave, datos["url"])
 
     return round(perf_counter() - inicio, 2)
+
 
 ####################
 ###### Fase 2 ######
@@ -98,25 +122,22 @@ def comprobar_concurrente():
         lista_hilos.append(hilo)
         hilo.start()
 
-    while True:
-        activos = []
-        for hilo in lista_hilos:
-            if hilo.is_alive():
-                activos.append(hilo.name)
-
-        if not activos:
-            break
-
-        print(f"   ... siguen activos ({len(activos)}): {', '.join(activos)}")
-        time.sleep(1)
-
-    print(f"[PRINCIPAL] Hilos activos tras lanzarlos: {len(activos)} -> {', '.join(activos)}")
+    hilo_monitor = threading.Thread(
+        target=monitor,
+        args=(lista_hilos,),
+        name="monitor",
+        daemon=True
+    )
+    hilo_monitor.start()
 
     for hilo in lista_hilos:
         hilo.join()
 
     return round(perf_counter() - inicio, 2)
 
+####################
+###### Fase 4 ######
+####################
 
 def monitor(lista_hilos:list):
     while True:
@@ -129,6 +150,8 @@ def monitor(lista_hilos:list):
             print(f"[MONITOR] Comprobaciones activas: {len(activos)} -> {', '.join(activos)}")
 
         time.sleep(1)
+
+
 
 ####################
 ##### Ejecución ####
