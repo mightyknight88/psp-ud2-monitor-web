@@ -1,5 +1,5 @@
 from time import perf_counter
-
+import threading
 import requests
 
 TIMEOUT = 6
@@ -69,6 +69,27 @@ def comprobar_secuencial():
 
     return round(perf_counter() - inicio, 2)
 
+####################
+###### Fase 2 ######
+####################
+
+def comprobar_concurrente():
+    reiniciar_estados()
+    inicio = perf_counter()
+
+    lista_hilos = []
+    for clave, datos in SERVICIOS.items():
+        hilo = threading.Thread(
+            target=comprobar_servicio,
+            args=(clave, datos["url"])
+        )
+        lista_hilos.append(hilo)
+        hilo.start()
+
+    for hilo in lista_hilos:
+        hilo.join()
+
+    return round(perf_counter() - inicio, 2)
 
 ####################
 ##### Ejecución ####
@@ -77,3 +98,7 @@ def comprobar_secuencial():
 print("===== VERSIÓN SECUENCIAL =====")
 tiempo_secuencial = comprobar_secuencial()
 print(f"Tiempo total secuencial: {tiempo_secuencial} s")
+
+print("\n===== VERSIÓN CONCURRENTE =====")
+tiempo_concurrente = comprobar_concurrente()
+print(f"Tiempo total concurrente: {tiempo_concurrente} s")
